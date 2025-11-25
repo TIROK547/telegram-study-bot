@@ -85,3 +85,6 @@ Thumbs.db
 # Telegram Bot tokens or sensitive config files
 config.json
 .env
+
+#Datas
+data.json
