@@ -1,218 +1,206 @@
 {
   "users": {
     "7165983303": {
-      "name": "Guess who?",
-      "active_session": null,
+      "name": "@Mashti_tirok",
+      "active_session": {
+        "start_time": "2025-11-24T21:22:01.830831",
+        "paused_at": "2025-11-24T21:22:45.031050",
+        "paused_duration": 0
+      },
       "paused_time": 0
     },
     "5261587487": {
-      "name": "بتمنِ‌ خُفته",
-      "active_session": null,
+      "name": "@Zhxt34",
+      "active_session": {
+        "start_time": "2025-11-24T21:58:21.805638+03:30",
+        "paused_at": "2025-11-24T21:59:01.207125+03:30",
+        "paused_duration": 0
+      },
       "paused_time": 0
     },
     "8044133264": {
-      "name": "𝘣𝘳",
+      "name": "@OObbbr",
       "active_session": {
         "start_time": "2025-11-24T10:26:52.486872",
-        "paused_at": "2025-11-24T16:11:01.899979",
-        "paused_duration": 930.006336
+        "paused_at": "2025-11-24T21:59:16.950415+03:30",
+        "paused_duration": 21717.065692999997
       },
       "paused_time": 0
     },
     "7024895991": {
-      "name": "kosar",
-      "active_session": {
-        "start_time": "2025-11-21T20:42:30.848606",
-        "paused_at": "2025-11-21T20:42:36.708428",
-        "paused_duration": 0
-      },
+      "name": "@Llpokee",
+      "active_session": null,
       "paused_time": 0
     },
     "7840658814": {
-      "name": "‌ ‌ ‌ ‌ ‌ . Luna",
+      "name": "@Lonn67",
       "active_session": null,
       "paused_time": 0
     },
     "7477198999": {
-      "name": "Maedeh",
+      "name": "user: (Maedeh)",
       "active_session": null,
       "paused_time": 0
     },
     "7567166079": {
-      "name": "ㅤ Conner",
-      "active_session": {
-        "start_time": "2025-11-22T16:22:29.596644",
-        "paused_at": "2025-11-22T17:19:50.808429",
-        "paused_duration": 0
-      },
-      "paused_time": 0
-    },
-    "8414406413": {
-      "name": "‌‌ ‌ ‌‌‌«Y»",
-      "active_session": {
-        "start_time": "2025-11-24T15:54:24.099871",
-        "paused_at": null,
-        "paused_duration": 0
-      },
-      "paused_time": 0
-    },
-    "6786007228": {
-      "name": "𝃨 پسته",
+      "name": "@FVCKUX",
       "active_session": null,
       "paused_time": 0
     },
-    "6652905365": {
-      "name": "Se",
+    "8414406413": {
+      "name": "@dani_yasna69",
+      "active_session": null,
+      "paused_time": 0
+    },
+    "6786007228": {
+      "name": "@yasipistachio",
       "active_session": {
-        "start_time": "2025-11-24T11:12:28.536101",
+        "start_time": "2025-11-24T21:21:13.419060",
         "paused_at": null,
-        "paused_duration": 4244.90763
+        "paused_duration": 0
       },
+      "paused_time": 0
+    },
+    "6652905365": {
+      "name": "@cmnobody",
+      "active_session": null,
       "paused_time": 0
     },
     "6168532600": {
-      "name": "carefree",
-      "active_session": {
-        "start_time": "2025-11-23T06:30:47.237776",
-        "paused_at": null,
-        "paused_duration": 31795.974178
-      },
+      "name": "@dellusiionall",
+      "active_session": null,
       "paused_time": 0
     },
     "7927017326": {
-      "name": "ㅤ‌‌‌ ‌ ‌ ‌‌‌ ‌𝒜‌‌‌‌‌‌‌‌ ‌.",
+      "name": "@Itgrly",
       "active_session": null,
       "paused_time": 0
     },
     "7120199808": {
-      "name": "优雅",
+      "name": "@nominsgirlie",
       "active_session": null,
       "paused_time": 0
     },
     "7183104165": {
-      "name": "mohi",
-      "active_session": {
-        "start_time": "2025-11-23T18:06:14.251650",
-        "paused_at": "2025-11-23T18:06:42.752692",
-        "paused_duration": 0
-      },
+      "name": "@mazkini",
+      "active_session": null,
       "paused_time": 0
     }
   },
   "daily_stats": {
     "2025-11-21": {
       "7165983303": {
-        "name": "Guess who?",
+        "name": "@Mashti_tirok",
         "total_seconds": 20889
       },
       "5261587487": {
-        "name": "Salvatore",
+        "name": "@Zhxt34",
         "total_seconds": 18097
       },
       "8044133264": {
-        "name": "𝘣𝘳",
+        "name": "@OObbbr",
         "total_seconds": 0
       },
       "7024895991": {
-        "name": "kosar",
+        "name": "@Llpokee",
         "total_seconds": 0
       }
     },
     "2025-11-22": {
       "8044133264": {
-        "name": "𝘣𝘳",
+        "name": "@OObbbr",
         "total_seconds": 95427
       },
       "7840658814": {
-        "name": "‌ ‌ ‌ ‌ ‌ . Luna",
+        "name": "@Lonn67",
         "total_seconds": 13734
       },
       "7477198999": {
-        "name": "Maedeh",
+        "name": "user: (Maedeh)",
         "total_seconds": 10852
       },
       "7567166079": {
-        "name": "ㅤ Conner",
+        "name": "@FVCKUX",
         "total_seconds": 0
       },
       "8414406413": {
-        "name": "‌‌ ‌ ‌‌‌«Y»",
+        "name": "@dani_yasna69",
         "total_seconds": 5906
       },
       "7165983303": {
-        "name": "Guess who?",
+        "name": "@Mashti_tirok",
         "total_seconds": 11
       }
     },
     "2025-11-23": {
       "8044133264": {
-        "name": "𝘣𝘳",
+        "name": "@OObbbr",
         "total_seconds": 16944
       },
       "6786007228": {
-        "name": "𝃨 پسته",
+        "name": "@yasipistachio",
         "total_seconds": 33446
       },
       "6652905365": {
-        "name": "Se",
+        "name": "@cmnobody",
         "total_seconds": 38367
       },
       "6168532600": {
-        "name": "carefree",
+        "name": "@dellusiionall",
         "total_seconds": 0
       },
       "7165983303": {
-        "name": "Guess who?",
+        "name": "@Mashti_tirok",
         "total_seconds": 10481
       },
       "7840658814": {
-        "name": "‌ ‌ ‌ ‌ ‌ . Luna",
+        "name": "@Lonn67",
         "total_seconds": 6015
       },
       "7927017326": {
-        "name": "ㅤ‌‌‌ ‌ ‌ ‌‌‌ ‌𝒜‌‌‌‌‌‌‌‌ ‌.",
+        "name": "@Itgrly",
         "total_seconds": 6835
       },
       "7120199808": {
-        "name": "优雅",
+        "name": "@nominsgirlie",
         "total_seconds": 13318
       },
       "7183104165": {
-        "name": "mohi",
+        "name": "@mazkini",
         "total_seconds": 0
       }
     },
     "2025-11-24": {
       "7165983303": {
-        "name": "Guess who?",
+        "name": "@Mashti_tirok",
         "total_seconds": 51217
       },
       "7840658814": {
-        "name": "‌ ‌ ‌ ‌ ‌ . Luna",
+        "name": "@Lonn67",
         "total_seconds": 17845
       },
       "5261587487": {
-        "name": "Salvatore",
+        "name": "@Zhxt34",
         "total_seconds": 17507
       },
       "7120199808": {
-        "name": "优雅",
+        "name": "@nominsgirlie",
         "total_seconds": 11658
       },
       "6652905365": {
-        "name": "Se",
-        "total_seconds": 58481
+        "name": "@cmnobody",
+        "total_seconds": 92919
       },
       "8044133264": {
-        "name": "𝘣𝘳",
+        "name": "@OObbbr",
         "total_seconds": 0
       },
       "8414406413": {
-        "name": "‌‌ ‌ “یَِسَِنَِاَِ”‌‌",
-        "total_seconds": 6217
+        "name": "@dani_yasna69",
+        "total_seconds": 27397
       },
       "6786007228": {
-        "name": "𝃨 پسته",
+        "name": "@yasipistachio",
         "total_seconds": 10696
       }
     }
@@ -235,8 +223,31 @@
     },
     "2025-11-24": {
       "chat_id": -1003481471394,
-      "message_id": 1644,
-      "expires": "23:59"
+      "message_id": 1799
+    }
+  },
+  "weekly_stats": {
+    "1404-W37": {
+      "8414406413": {
+        "name": "@dani_yasna69",
+        "total_seconds": 21180
+      },
+      "6652905365": {
+        "name": "@cmnobody",
+        "total_seconds": 34438
+      }
+    }
+  },
+  "monthly_stats": {
+    "1404-09": {
+      "8414406413": {
+        "name": "@dani_yasna69",
+        "total_seconds": 21180
+      },
+      "6652905365": {
+        "name": "@cmnobody",
+        "total_seconds": 34438
+      }
     }
   }
 }
