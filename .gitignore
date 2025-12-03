@@ -78,6 +78,11 @@ cython_debug/
 # VS Code
 .vscode/
 
+# IDEs
+.idea/
+.claude/
+.venv/
+
 # OS files
 .DS_Store
 Thumbs.db
@@ -86,5 +91,12 @@ Thumbs.db
 config.json
 .env
 
-#Datas
+# Data files and backups
+data/
+backups/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 data.json
+data.json.backup

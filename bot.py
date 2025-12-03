@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 from datetime import datetime, timedelta, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,6 +8,9 @@ import pytz
 import jdatetime
 from dotenv import load_dotenv
 from functools import lru_cache
+
+# Import database functions
+import database as db
 
 # Load environment variables
 load_dotenv()
@@ -20,45 +22,6 @@ UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", "30"))
 
 # Timezone
 IRAN_TZ = pytz.timezone('Asia/Tehran')
-
-# JSON Database file
-DB_FILE = "data.json"
-
-# Cache for data to reduce file I/O
-_data_cache = None
-_cache_time = None
-CACHE_DURATION = 2
-
-def load_data():
-    """Load data from JSON file with caching"""
-    global _data_cache, _cache_time
-    
-    now = datetime.now()
-    if _data_cache and _cache_time and (now - _cache_time).total_seconds() < CACHE_DURATION:
-        return _data_cache
-    
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, 'r', encoding='utf-8') as f:
-            _data_cache = json.load(f)
-    else:
-        _data_cache = {
-            "users": {}, 
-            "daily_stats": {},
-            "weekly_stats": {},
-            "monthly_stats": {},
-            "details_message": {}
-        }
-    
-    _cache_time = now
-    return _data_cache
-
-def save_data(data):
-    """Save data to JSON file and update cache"""
-    global _data_cache, _cache_time
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    _data_cache = data
-    _cache_time = datetime.now()
 
 def to_farsi_number(num):
     """Convert English/Arabic numbers to Farsi"""
@@ -155,43 +118,41 @@ async def access_denied(update: Update):
     elif update.callback_query:
         await update.callback_query.answer(message, show_alert=True)
 
-def reset_expired_sessions(data):
+def reset_expired_sessions():
     """Reset sessions that are older than today - optimized"""
     today = get_today()
+    all_users = db.get_all_users()
     expired_users = []
-    
-    for user_id, user_data in data["users"].items():
-        if user_data.get("active_session"):
-            session_start = datetime.fromisoformat(user_data["active_session"]["start_time"])
+
+    for user_id, user_data in all_users.items():
+        session = db.get_active_session(user_id)
+        if session:
+            session_start = datetime.fromisoformat(session["start_time"])
             # Make sure session_start is timezone-aware
             if session_start.tzinfo is None:
                 session_start = IRAN_TZ.localize(session_start)
-            
+
             session_date = session_start.astimezone(IRAN_TZ).strftime("%Y-%m-%d")
-            
+
             if session_date != today:
                 expired_users.append(user_id)
-    
-    for user_id in expired_users:
-        data["users"][user_id]["active_session"] = None
-    
-    if expired_users:
-        save_data(data)
 
-def calculate_active_time(user_data):
-    """Calculate current active study time for a user"""
-    if not user_data.get("active_session"):
+    for user_id in expired_users:
+        db.end_session(user_id)
+
+def calculate_active_time(session):
+    """Calculate current active study time for a session"""
+    if not session:
         return 0
-    
-    session = user_data["active_session"]
+
     start_time = datetime.fromisoformat(session["start_time"])
-    
+
     # Make sure start_time is timezone-aware
     if start_time.tzinfo is None:
         start_time = IRAN_TZ.localize(start_time)
-    
+
     paused_duration = session.get("paused_duration", 0)
-    
+
     if session.get("paused_at"):
         paused_at = datetime.fromisoformat(session["paused_at"])
         # Make sure paused_at is timezone-aware
@@ -200,53 +161,54 @@ def calculate_active_time(user_data):
         total_time = (paused_at - start_time).total_seconds() - paused_duration
     else:
         total_time = (get_iran_now() - start_time).total_seconds() - paused_duration
-    
+
     return max(0, int(total_time))
 
-def get_main_menu_keyboard():
+def get_main_menu_keyboard(user_id):
     """Get main menu keyboard"""
     keyboard = [
-        [InlineKeyboardButton("▶️ شروع مطالعه", callback_data="start_study")],
+        [InlineKeyboardButton("▶️ شروع مطالعه", callback_data=f"start_study:{user_id}")],
         [
-            InlineKeyboardButton("⏸ توقف موقت", callback_data="pause_study"),
-            InlineKeyboardButton("▶️ ادامه دادن", callback_data="resume_study")
+            InlineKeyboardButton("⏸ توقف موقت", callback_data=f"pause_study:{user_id}"),
+            InlineKeyboardButton("▶️ ادامه دادن", callback_data=f"resume_study:{user_id}")
         ],
-        [InlineKeyboardButton("⏹ پایان و ذخیره", callback_data="end_study")],
+        [InlineKeyboardButton("⏹ پایان و ذخیره", callback_data=f"end_study:{user_id}")],
         [
-            InlineKeyboardButton("📊 آمار من", callback_data="my_stats"),
-            InlineKeyboardButton("📈 آمار گروه", callback_data="group_stats")
+            InlineKeyboardButton("📊 آمار من", callback_data=f"my_stats:{user_id}"),
+            InlineKeyboardButton("📈 آمار گروه", callback_data=f"group_stats:{user_id}")
         ],
         [
-            InlineKeyboardButton("🏆 رتبه‌بندی‌ها", callback_data="leaderboard_menu"),
-            InlineKeyboardButton("❓ راهنما", callback_data="help")
+            InlineKeyboardButton("🏆 رتبه‌بندی‌ها", callback_data=f"leaderboard_menu:{user_id}"),
+            InlineKeyboardButton("❓ راهنما", callback_data=f"help:{user_id}")
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_leaderboard_menu_keyboard():
+def get_leaderboard_menu_keyboard(user_id):
     """Get leaderboard menu keyboard"""
     keyboard = [
-        [InlineKeyboardButton("🏆 امروز", callback_data="top_students")],
-        [InlineKeyboardButton("📅 هفتگی", callback_data="weekly_stats")],
-        [InlineKeyboardButton("📆 ماهانه", callback_data="monthly_stats")],
-        [InlineKeyboardButton("🔙 بازگشت به منو", callback_data="back_main")]
+        [InlineKeyboardButton("🏆 امروز", callback_data=f"top_students:{user_id}")],
+        [InlineKeyboardButton("📅 هفتگی", callback_data=f"weekly_stats:{user_id}")],
+        [InlineKeyboardButton("📆 ماهانه", callback_data=f"monthly_stats:{user_id}")],
+        [InlineKeyboardButton("🔙 بازگشت به منو", callback_data=f"back_main:{user_id}")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_back_button():
+def get_back_button(user_id):
     """Get back button keyboard"""
-    keyboard = [[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="back_main")]]
+    keyboard = [[InlineKeyboardButton("🔙 بازگشت به منو", callback_data=f"back_main:{user_id}")]]
     return InlineKeyboardMarkup(keyboard)
 
-def build_details_message(data):
+def build_details_message():
     """Build the live details message - RTL-friendly UI"""
     today = get_today()
-    reset_expired_sessions(data)
+    reset_expired_sessions()
 
     now = get_iran_now()
     time_fa = format_time_hms(now)
     
-    if today not in data["daily_stats"] or not data["daily_stats"][today]:
+    users_stats = db.get_daily_stats(today)
+    if not users_stats:
         return (
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"📊 آمار زنده امروز\n"
@@ -256,7 +218,7 @@ def build_details_message(data):
             f"🎯 اولین نفر باش و شروع کن! 💪"
         )
 
-    users_stats = data["daily_stats"][today]
+    all_users = db.get_all_users()
     active = []
     finished = []
 
@@ -264,10 +226,12 @@ def build_details_message(data):
         name = info["name"]
         completed_time = info["total_seconds"]
 
-        if uid in data["users"] and data["users"][uid].get("active_session"):
-            current_session_time = calculate_active_time(data["users"][uid])
+        user_data = all_users.get(uid, {})
+        session = db.get_active_session(uid)
+        if session:
+            current_session_time = calculate_active_time(session)
             total_time = completed_time + current_session_time
-            is_paused = data["users"][uid]["active_session"].get("paused_at") is not None
+            is_paused = session.get("paused_at") is not None
             active.append((name, total_time, is_paused))
         else:
             if completed_time > 0:
@@ -315,21 +279,21 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_group_access(update):
         await access_denied(update)
         return
-    
-    data = load_data()
-    today = get_today()
 
-    if today not in data["daily_stats"] or not data["daily_stats"][today]:
+    today = get_today()
+    users_stats = db.get_daily_stats(today)
+
+    if not users_stats:
         await update.message.reply_text("📊 امروز هنوز هیچ مطالعه‌ای ثبت نشده است.")
         return
 
-    users_stats = data["daily_stats"][today]
     user_totals = []
-    
+
     for uid, stats in users_stats.items():
         total = stats["total_seconds"]
-        if uid in data["users"] and data["users"][uid].get("active_session"):
-            total += calculate_active_time(data["users"][uid])
+        session = db.get_active_session(uid)
+        if session:
+            total += calculate_active_time(session)
         if total > 0:
             user_totals.append((stats["name"], total))
     
@@ -378,43 +342,35 @@ async def details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_group_access(update):
         await access_denied(update)
         return
-    
-    data = load_data()
-    today = get_today()
 
-    msg_text = build_details_message(data)
+    today = get_today()
+    msg_text = build_details_message()
     sent = await update.message.reply_text(msg_text)
 
-    if "details_message" not in data:
-        data["details_message"] = {}
-    
-    data["details_message"][today] = {
-        "chat_id": sent.chat_id,
-        "message_id": sent.message_id
-    }
-    save_data(data)
+    db.save_details_message(today, sent.chat_id, sent.message_id)
 
 async def update_details_message(context: ContextTypes.DEFAULT_TYPE):
     """Periodically update the details message"""
-    data = load_data()
-    today = get_today()
-
-    if "details_message" not in data or today not in data["details_message"]:
-        return
-
-    info = data["details_message"][today]
-    chat_id = info["chat_id"]
-    message_id = info["message_id"]
-
-    new_text = build_details_message(data)
-
     try:
+        today = get_today()
+        info = db.get_details_message(today)
+
+        if not info:
+            return
+
+        chat_id = info["chat_id"]
+        message_id = info["message_id"]
+
+        new_text = build_details_message()
+
         await context.bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
             text=new_text
         )
-    except Exception:
+    except Exception as e:
+        # Message was deleted or not found, or network error - just continue
+        print(f"⚠️ Warning updating details message: {e}")
         pass
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -422,13 +378,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_group_access(update):
         await access_denied(update)
         return
-    
+
+    user_id = update.effective_user.id
     now = get_iran_now()
     p_date = get_persian_date()
-    
+
     time_fa = format_time_hms(now)
     p_date_fa = format_persian_date_display(p_date)
-    
+
     message = (
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🎓 ربات ردیاب مطالعه\n"
@@ -442,63 +399,57 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
         f"👇 از دکمه‌های زیر استفاده کن:"
     )
-    
-    await update.message.reply_text(message, reply_markup=get_main_menu_keyboard())
 
-def update_period_stats(data, user_id, username, duration):
+    await update.message.reply_text(message, reply_markup=get_main_menu_keyboard(user_id))
+
+def update_period_stats(user_id, username, duration):
     """Update weekly and monthly statistics"""
     week_key = get_persian_week_key()
     month_key = get_persian_month_key()
-    
-    if "weekly_stats" not in data:
-        data["weekly_stats"] = {}
-    if "monthly_stats" not in data:
-        data["monthly_stats"] = {}
-    
-    if week_key not in data["weekly_stats"]:
-        data["weekly_stats"][week_key] = {}
-    if month_key not in data["monthly_stats"]:
-        data["monthly_stats"][month_key] = {}
-    
-    if user_id not in data["weekly_stats"][week_key]:
-        data["weekly_stats"][week_key][user_id] = {"name": username, "total_seconds": 0}
-    data["weekly_stats"][week_key][user_id]["total_seconds"] += duration
-    data["weekly_stats"][week_key][user_id]["name"] = username
-    
-    if user_id not in data["monthly_stats"][month_key]:
-        data["monthly_stats"][month_key][user_id] = {"name": username, "total_seconds": 0}
-    data["monthly_stats"][month_key][user_id]["total_seconds"] += duration
-    data["monthly_stats"][month_key][user_id]["name"] = username
+
+    # Update weekly stats
+    db.update_weekly_stats(user_id, week_key, username, duration)
+
+    # Update monthly stats
+    db.update_monthly_stats(user_id, month_key, username, duration)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle button callbacks"""
     if not check_group_access(update):
         await access_denied(update)
         return
-    
+
     query = update.callback_query
+
+    # Parse callback_data to extract action and authorized user_id
+    callback_parts = query.data.split(":")
+    action = callback_parts[0]
+    authorized_user_id = int(callback_parts[1]) if len(callback_parts) > 1 else None
+
+    # Verify the user clicking is the authorized user
+    if authorized_user_id and query.from_user.id != authorized_user_id:
+        await query.answer("⛔️ این دکمه‌ها فقط برای کاربری هست که دستور رو زده!", show_alert=True)
+        return
+
     await query.answer()
-    
-    data = load_data()
-    reset_expired_sessions(data)
-    
+
+    reset_expired_sessions()
+
     user_id = str(query.from_user.id)
     username = f"@{query.from_user.username}" if query.from_user.username else f"user: ({query.from_user.first_name})"
     today = get_today()
-    
-    if user_id not in data["users"]:
-        data["users"][user_id] = {"name": username, "active_session": None}
-    
-    if today not in data["daily_stats"]:
-        data["daily_stats"][today] = {}
-    
-    if user_id not in data["daily_stats"][today]:
-        data["daily_stats"][today][user_id] = {"name": username, "total_seconds": 0}
-    
-    user = data["users"][user_id]
-    
+
+    # Ensure user exists in database
+    db.create_or_update_user(user_id, username)
+
+    # Ensure daily stat exists
+    db.ensure_daily_stat_exists(user_id, today, username)
+
+    # Get active session if any
+    session = db.get_active_session(user_id)
+
     # Navigation
-    if query.data == "back_main":
+    if action == "back_main":
         now = get_iran_now()
         p_date = get_persian_date()
         
@@ -512,20 +463,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📅 {time_fa} - {p_date_fa}\n\n"
             f"👇 یکی از گزینه‌ها رو انتخاب کن:"
         )
-        await query.edit_message_text(message, reply_markup=get_main_menu_keyboard())
+        await query.edit_message_text(message, reply_markup=get_main_menu_keyboard(query.from_user.id))
         return
-    
-    elif query.data == "leaderboard_menu":
+
+    elif action == "leaderboard_menu":
         message = (
             f"━━━━━━━━━━━━━━━━━\n"
             f"🏆 رتبه‌بندی‌ها\n"
             f"━━━━━━━━━━━━━━━━━\n\n"
             f"کدوم رتبه‌بندی رو می‌خوای ببینی؟ 👀"
         )
-        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard())
+        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard(query.from_user.id))
         return
-    
-    elif query.data == "help":
+
+    elif action == "help":
         message = (
             f"━━━━━━━━━━━━━━━━━━\n"
             f"❓ راهنمای کامل\n"
@@ -548,27 +499,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"حتماً بعد از تموم شدن مطالعه،\n"
             f"روی 'پایان و ذخیره' کلیک کن! ✅"
         )
-        await query.edit_message_text(message, reply_markup=get_back_button())
+        await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
         return
-    
-    elif query.data == "group_stats":
-        if today not in data["daily_stats"] or not data["daily_stats"][today]:
+
+    elif action == "group_stats":
+        users_stats = db.get_daily_stats(today)
+        if not users_stats:
             message = (
                 f"━━━━━━━━━━━━━━━\n"
                 f"📈 آمار گروه\n"
                 f"━━━━━━━━━━━━━━━\n\n"
                 f"💤 امروز هنوز کسی شروع نکرده!"
             )
-            await query.edit_message_text(message, reply_markup=get_back_button())
+            await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
             return
-        
-        users_stats = data["daily_stats"][today]
+
         user_totals = []
-        
+
         for uid, stats in users_stats.items():
             total = stats["total_seconds"]
-            if uid in data["users"] and data["users"][uid].get("active_session"):
-                total += calculate_active_time(data["users"][uid])
+            user_session = db.get_active_session(uid)
+            if user_session:
+                total += calculate_active_time(user_session)
             if total > 0:
                 user_totals.append((stats["name"], total))
         
@@ -595,13 +547,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message += f"📊 میانگین: {format_time(avg)}\n"
         
         message += f"\n🔥 بریم بالاتر! 💪"
-        
-        await query.edit_message_text(message, reply_markup=get_back_button())
+
+        await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
         return
-    
+
     # Study controls
-    elif query.data == "start_study":
-        if user.get("active_session"):
+    elif action == "start_study":
+        if session:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ توجه!\n"
@@ -609,16 +561,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"قبلاً یه جلسه شروع کردی! 😊\n\n"
                 f"اول باید اون رو تموم کنی.\n"
                 f"روی 'پایان و ذخیره' کلیک کن. ✅",
-                reply_markup=get_back_button()
+                reply_markup=get_back_button(query.from_user.id)
             )
         else:
             now = get_iran_now()
-            user["active_session"] = {
-                "start_time": now.isoformat(),
-                "paused_at": None,
-                "paused_duration": 0
-            }
-            save_data(data)
+            db.start_session(user_id, now.isoformat())
             
             time_fa = format_time_hms(now)
             
@@ -631,32 +578,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⏰ زمان شروع: {time_fa}\n\n"
                 f"موفق باشی! 📚💪✨"
             )
-            await query.edit_message_text(message, reply_markup=get_back_button())
-    
-    elif query.data == "pause_study":
-        if not user.get("active_session"):
+            await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
+
+    elif action == "pause_study":
+        if not session:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ خطا!\n"
                 f"━━━━━━━━━━━━━━━━━\n\n"
                 f"هیچ جلسه فعالی نداری! 😕\n\n"
                 f"اول باید مطالعه رو شروع کنی. ▶️",
-                reply_markup=get_back_button()
+                reply_markup=get_back_button(query.from_user.id)
             )
-        elif user["active_session"].get("paused_at"):
+        elif session.get("paused_at"):
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ توجه!\n"
                 f"━━━━━━━━━━━━━━━━━\n\n"
                 f"قبلاً متوقف کردی! ⏸\n\n"
                 f"برای ادامه روی 'ادامه دادن' کلیک کن.",
-                reply_markup=get_back_button()
+                reply_markup=get_back_button(query.from_user.id)
             )
         else:
-            user["active_session"]["paused_at"] = get_iran_now().isoformat()
-            save_data(data)
-            
-            current_time = calculate_active_time(user)
+            now = get_iran_now()
+            db.pause_session(user_id, now.isoformat())
+
+            # Refresh session to get updated data
+            session = db.get_active_session(user_id)
+            current_time = calculate_active_time(session)
             message = (
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"⏸ متوقف شد\n"
@@ -667,36 +616,34 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"برای ادامه:\n"
                 f"'ادامه دادن' رو بزن. ▶️"
             )
-            await query.edit_message_text(message, reply_markup=get_back_button())
-    
-    elif query.data == "resume_study":
-        if not user.get("active_session"):
+            await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
+
+    elif action == "resume_study":
+        if not session:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ خطا!\n"
                 f"━━━━━━━━━━━━━━━━━\n\n"
                 f"هیچ جلسه فعالی نداری! 😕",
-                reply_markup=get_back_button()
+                reply_markup=get_back_button(query.from_user.id)
             )
-        elif not user["active_session"].get("paused_at"):
+        elif not session.get("paused_at"):
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ توجه!\n"
                 f"━━━━━━━━━━━━━━━━━\n\n"
                 f"جلسه‌ت متوقف نشده! 🤔\n\n"
                 f"الان داری مطالعه می‌کنی. ▶️",
-                reply_markup=get_back_button()
+                reply_markup=get_back_button(query.from_user.id)
             )
         else:
-            paused_at = datetime.fromisoformat(user["active_session"]["paused_at"])
+            paused_at = datetime.fromisoformat(session["paused_at"])
             # Make sure paused_at is timezone-aware
             if paused_at.tzinfo is None:
                 paused_at = IRAN_TZ.localize(paused_at)
-            
+
             pause_duration = (get_iran_now() - paused_at).total_seconds()
-            user["active_session"]["paused_duration"] += pause_duration
-            user["active_session"]["paused_at"] = None
-            save_data(data)
+            db.resume_session(user_id, pause_duration)
             
             message = (
                 f"━━━━━━━━━━━━━━━━━━━━\n"
@@ -706,20 +653,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"بریم که وقت طلاست! ⏰\n\n"
                 f"موفق باشی! 📚💪✨"
             )
-            await query.edit_message_text(message, reply_markup=get_back_button())
-    
-    elif query.data == "end_study":
-        if not user.get("active_session"):
+            await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
+
+    elif action == "end_study":
+        if not session:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ خطا!\n"
                 f"━━━━━━━━━━━━━━━━━\n\n"
                 f"هیچ جلسه فعالی نداری! 😕",
-                reply_markup=get_back_button()
+                reply_markup=get_back_button(query.from_user.id)
             )
         else:
-            session_duration = calculate_active_time(user)
-            
+            session_duration = calculate_active_time(session)
+
             if session_duration < 60:
                 await query.edit_message_text(
                     f"━━━━━━━━━━━━━━━━━\n"
@@ -728,19 +675,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"مدت جلسه خیلی کمه! ⏱\n"
                     f"(کمتر از ۱ دقیقه)\n\n"
                     f"حداقل ۱ دقیقه مطالعه کن. 📚",
-                    reply_markup=get_back_button()
+                    reply_markup=get_back_button(query.from_user.id)
                 )
                 return
-            
-            data["daily_stats"][today][user_id]["total_seconds"] += session_duration
-            data["daily_stats"][today][user_id]["name"] = username
-            
-            update_period_stats(data, user_id, username, session_duration)
-            
-            user["active_session"] = None
-            save_data(data)
-            
-            total_today = data["daily_stats"][today][user_id]["total_seconds"]
+
+            # Update daily stats
+            db.update_daily_stats(user_id, today, username, session_duration)
+
+            # Update period stats (weekly/monthly)
+            update_period_stats(user_id, username, session_duration)
+
+            # End the session
+            db.end_session(user_id)
+
+            # Get updated total for today
+            daily_stats = db.get_daily_stats(today)
+            total_today = daily_stats.get(user_id, {}).get("total_seconds", 0)
             
             message = (
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
@@ -752,15 +702,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📊 مجموع امروز: {format_time(total_today)}\n\n"
                 f"ادامه بده! 💪🔥✨"
             )
-            await query.edit_message_text(message, reply_markup=get_back_button())
-    
-    elif query.data == "my_stats":
-        completed_time = data["daily_stats"][today][user_id]["total_seconds"]
-        
-        if user.get("active_session"):
-            current_session_time = calculate_active_time(user)
+            await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
+
+    elif action == "my_stats":
+        # Get daily stats
+        daily_stats = db.get_daily_stats(today)
+        completed_time = daily_stats.get(user_id, {}).get("total_seconds", 0)
+
+        if session:
+            current_session_time = calculate_active_time(session)
             total_time = completed_time + current_session_time
-            if user["active_session"].get("paused_at"):
+            if session.get("paused_at"):
                 status = "⏸ متوقف شده"
                 status_emoji = "⏸"
             else:
@@ -792,25 +744,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             message += f"💡 هنوز شروع نکردی!\nبزن بریم! 🚀"
         
-        await query.edit_message_text(message, reply_markup=get_back_button())
-    
-    elif query.data == "top_students":
-        if today not in data["daily_stats"] or not data["daily_stats"][today]:
+        await query.edit_message_text(message, reply_markup=get_back_button(query.from_user.id))
+
+    elif action == "top_students":
+        users_stats = db.get_daily_stats(today)
+        if not users_stats:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"🏆 برترین‌ها\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"💤 هنوز کسی شروع نکرده!\n\n"
                 f"اولین نفر باش! 🚀",
-                reply_markup=get_leaderboard_menu_keyboard()
+                reply_markup=get_leaderboard_menu_keyboard(query.from_user.id)
             )
             return
-        
+
         user_totals = []
-        for uid, stats in data["daily_stats"][today].items():
+        for uid, stats in users_stats.items():
             total = stats["total_seconds"]
-            if uid in data["users"] and data["users"][uid].get("active_session"):
-                total += calculate_active_time(data["users"][uid])
+            user_session = db.get_active_session(uid)
+            if user_session:
+                total += calculate_active_time(user_session)
             if total > 0:
                 user_totals.append((stats["name"], total))
         
@@ -837,23 +791,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message += f"{rank_fa}. {name}\n"
             message += f"     ⏱ {format_time(total)}\n\n"
         
-        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard())
-    
-    elif query.data == "weekly_stats":
+        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard(query.from_user.id))
+
+    elif action == "weekly_stats":
         week_key = get_persian_week_key()
-        
-        if "weekly_stats" not in data or week_key not in data["weekly_stats"] or not data["weekly_stats"][week_key]:
+        week_stats = db.get_weekly_stats(week_key)
+
+        if not week_stats:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"📅 آمار هفتگی\n"
                 f"━━━━━━━━━━━━━━━━━━━\n\n"
                 f"💤 این هفته هنوز کسی شروع نکرده!",
-                reply_markup=get_leaderboard_menu_keyboard()
+                reply_markup=get_leaderboard_menu_keyboard(query.from_user.id)
             )
             return
-        
+
         sorted_users = sorted(
-            data["weekly_stats"][week_key].items(),
+            week_stats.items(),
             key=lambda x: x[1]["total_seconds"],
             reverse=True
         )
@@ -875,23 +830,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message += f"{rank_fa}. {stats['name']}\n"
             message += f"     ⏱ {format_time(stats['total_seconds'])}\n\n"
         
-        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard())
-    
-    elif query.data == "monthly_stats":
+        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard(query.from_user.id))
+
+    elif action == "monthly_stats":
         month_key = get_persian_month_key()
-        
-        if "monthly_stats" not in data or month_key not in data["monthly_stats"] or not data["monthly_stats"][month_key]:
+        month_stats = db.get_monthly_stats(month_key)
+
+        if not month_stats:
             await query.edit_message_text(
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"📆 آمار ماهانه\n"
                 f"━━━━━━━━━━━━━━━━━━━\n\n"
                 f"💤 این ماه هنوز کسی شروع نکرده!",
-                reply_markup=get_leaderboard_menu_keyboard()
+                reply_markup=get_leaderboard_menu_keyboard(query.from_user.id)
             )
             return
-        
+
         sorted_users = sorted(
-            data["monthly_stats"][month_key].items(),
+            month_stats.items(),
             key=lambda x: x[1]["total_seconds"],
             reverse=True
         )
@@ -919,17 +875,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message += f"{rank_fa}. {stats['name']}\n"
             message += f"     ⏱ {format_time(stats['total_seconds'])}\n\n"
         
-        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard())
+        await query.edit_message_text(message, reply_markup=get_leaderboard_menu_keyboard(query.from_user.id))
 
 async def daily_report(context: ContextTypes.DEFAULT_TYPE):
     """Send daily report at midnight"""
-    data = load_data()
     yesterday_dt = get_iran_now() - timedelta(days=1)
     yesterday = yesterday_dt.strftime("%Y-%m-%d")
-    
-    if yesterday in data["daily_stats"] and data["daily_stats"][yesterday]:
+
+    daily_stats = db.get_daily_stats(yesterday)
+
+    if daily_stats:
         sorted_users = sorted(
-            data["daily_stats"][yesterday].items(),
+            daily_stats.items(),
             key=lambda x: x[1]["total_seconds"],
             reverse=True
         )
@@ -956,14 +913,14 @@ async def daily_report(context: ContextTypes.DEFAULT_TYPE):
 async def startup_migration(application):
     """Fetch and update usernames from Telegram API on startup"""
     print("🔄 Running startup migration to fetch usernames...")
-    data = load_data()
+    all_users = db.get_all_users()
     
     needs_save = False
     updated_count = 0
     failed_count = 0
     
     # Go through all users and fetch their current Telegram info
-    for user_id_str, user_data in data["users"].items():
+    for user_id_str, user_data in all_users.items():
         try:
             user_id_int = int(user_id_str)
             current_name = user_data.get("name", "")
@@ -983,7 +940,7 @@ async def startup_migration(application):
                 
                 # Update if changed
                 if current_name != new_name:
-                    user_data["name"] = new_name
+                    db.create_or_update_user(user_id_str, new_name)
                     needs_save = True
                     updated_count += 1
                     print(f"  ✅ Updated user {user_id_str}: {current_name} -> {new_name}")
@@ -992,7 +949,8 @@ async def startup_migration(application):
                 # User not accessible (blocked bot, deleted account, etc.)
                 if not current_name.startswith("@") and not current_name.startswith("user: "):
                     # Fix format for inaccessible users
-                    user_data["name"] = f"user: ({current_name})"
+                    new_name = f"user: ({current_name})"
+                    db.create_or_update_user(user_id_str, new_name)
                     needs_save = True
                     failed_count += 1
                     print(f"  ⚠️ Cannot access user {user_id_str}, kept as: {user_data['name']}")
@@ -1001,27 +959,8 @@ async def startup_migration(application):
             print(f"  ❌ Error processing user {user_id_str}: {e}")
             failed_count += 1
     
-    # Update all stats with the new names
+    # Print migration results
     if needs_save:
-        # Update names in daily_stats
-        for date_key, users in data.get("daily_stats", {}).items():
-            for user_id, stats in users.items():
-                if user_id in data["users"]:
-                    stats["name"] = data["users"][user_id]["name"]
-        
-        # Update names in weekly_stats
-        for week_key, users in data.get("weekly_stats", {}).items():
-            for user_id, stats in users.items():
-                if user_id in data["users"]:
-                    stats["name"] = data["users"][user_id]["name"]
-        
-        # Update names in monthly_stats
-        for month_key, users in data.get("monthly_stats", {}).items():
-            for user_id, stats in users.items():
-                if user_id in data["users"]:
-                    stats["name"] = data["users"][user_id]["name"]
-        
-        save_data(data)
         print(f"\n✅ Migration completed!")
         print(f"   📊 Updated: {updated_count} users")
         if failed_count > 0:
@@ -1029,37 +968,62 @@ async def startup_migration(application):
     else:
         print("✅ No updates needed, all usernames are current!")
 
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle errors to prevent bot from stopping"""
+    print(f"❌ Error occurred: {context.error}")
+    # Don't let errors stop the bot
+    return
+
 def main():
     """Start the bot"""
     if not BOT_TOKEN:
         print("❌ Error: BOT_TOKEN not found in .env file")
         return
-    
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
-    
-    # Run startup migration to fetch usernames
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(startup_migration(application))
-    
+
+    # Initialize database
+    print("📊 Initializing database...")
+    db.init_database()
+
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .connect_timeout(30.0)
+        .read_timeout(30.0)
+        .write_timeout(30.0)
+        .pool_timeout(30.0)
+        .build()
+    )
+
+    # Skip startup migration - usernames will be updated as users interact with bot
+    # Note: startup_migration can be manually run if needed to refresh all usernames
+
+    # Add error handler first
+    application.add_error_handler(error_handler)
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("details", details))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CallbackQueryHandler(button_handler))
-    
+
     application.job_queue.run_repeating(
-        update_details_message, 
-        interval=UPDATE_INTERVAL, 
+        update_details_message,
+        interval=UPDATE_INTERVAL,
         first=UPDATE_INTERVAL
     )
 
     midnight_iran = time(hour=0, minute=0, tzinfo=IRAN_TZ)
     application.job_queue.run_daily(daily_report, time=midnight_iran)
-    
+
     print("\n🤖 Bot is running...")
     print(f"📍 Group: {ALLOWED_GROUP_ID if ALLOWED_GROUP_ID != 0 else 'All'}")
     print(f"⏱ Update interval: {UPDATE_INTERVAL} seconds")
-    application.run_polling()
+
+    # Run with robust polling settings
+    application.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True,
+        close_loop=False
+    )
 
 if __name__ == "__main__":
     main()
