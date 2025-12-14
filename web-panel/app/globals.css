@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 249 250 251;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --primary: 99 102 241;
+    --primary-foreground: 255 255 255;
+    --secondary: 241 245 249;
+    --secondary-foreground: 15 23 42;
+    --muted: 241 245 249;
+    --muted-foreground: 100 116 139;
+    --accent: 139 92 246;
+    --accent-foreground: 255 255 255;
+    --border: 226 232 240;
+    --success: 34 197 94;
+    --warning: 251 146 60;
+    --gold: 250 204 21;
+    --silver: 156 163 175;
+    --bronze: 234 88 12;
+  }
+
+  .dark {
+    --background: 10 14 23;
+    --foreground: 248 250 252;
+    --card: 20 27 45;
+    --card-foreground: 248 250 252;
+    --primary: 129 140 248;
+    --primary-foreground: 255 255 255;
+    --secondary: 30 41 59;
+    --secondary-foreground: 248 250 252;
+    --muted: 51 65 85;
+    --muted-foreground: 148 163 184;
+    --accent: 167 139 250;
+    --accent-foreground: 255 255 255;
+    --border: 51 65 85;
+    --success: 52 211 153;
+    --warning: 251 191 36;
+  }
+
+  body {
+    font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: rgb(var(--background));
+    color: rgb(var(--foreground));
+    background-image:
+      radial-gradient(at 0% 0%, rgba(var(--primary), 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(var(--accent), 0.08) 0px, transparent 50%);
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(at 0% 0%, rgba(var(--primary), 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(var(--accent), 0.15) 0px, transparent 50%);
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .dark .glass {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(71, 85, 105, 0.3);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, rgb(var(--primary)) 0%, rgb(var(--accent)) 100%);
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, rgba(var(--gold), 0.15) 0%, rgba(var(--gold), 0.05) 100%);
+  border: 2px solid rgb(var(--gold) / 0.4);
+  box-shadow: 0 0 20px rgba(var(--gold), 0.2);
+}
+
+.rank-1:hover {
+  box-shadow: 0 0 30px rgba(var(--gold), 0.3);
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, rgba(var(--silver), 0.15) 0%, rgba(var(--silver), 0.05) 100%);
+  border: 2px solid rgb(var(--silver) / 0.4);
+  box-shadow: 0 0 20px rgba(var(--silver), 0.2);
+}
+
+.rank-2:hover {
+  box-shadow: 0 0 30px rgba(var(--silver), 0.3);
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, rgba(var(--bronze), 0.15) 0%, rgba(var(--bronze), 0.05) 100%);
+  border: 2px solid rgb(var(--bronze) / 0.4);
+  box-shadow: 0 0 20px rgba(var(--bronze), 0.2);
+}
+
+.rank-3:hover {
+  box-shadow: 0 0 30px rgba(var(--bronze), 0.3);
+}

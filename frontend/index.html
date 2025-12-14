@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Bot - پنل آمار مطالعه</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="light-mode" data-lang="fa">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo" data-fa="🎓 پنل آمار مطالعه" data-en="🎓 Study Stats Panel">🎓 پنل آمار مطالعه</h1>
+                <div class="header-controls">
+                    <button class="theme-toggle" id="themeToggle" title="تغییر تم">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button class="lang-toggle" id="langToggle">
+                        <span data-fa="EN" data-en="FA">EN</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Search Section -->
+            <section class="search-section">
+                <h2 class="section-title" data-fa="جستجوی کاربر" data-en="Search User">جستجوی کاربر</h2>
+                <div class="search-box">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="search-input"
+                        placeholder="@username"
+                        data-fa-placeholder="@username (مثال: @tirok547)"
+                        data-en-placeholder="@username (e.g. @tirok547)"
+                    >
+                    <button id="searchBtn" class="search-btn" data-fa="جستجو" data-en="Search">جستجو</button>
+                </div>
+                <div id="searchResults" class="search-results"></div>
+            </section>
+
+            <!-- Tabs Section -->
+            <section class="stats-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="daily" data-fa="روزانه" data-en="Daily">روزانه</button>
+                    <button class="tab-btn" data-tab="weekly" data-fa="هفتگی" data-en="Weekly">هفتگی</button>
+                    <button class="tab-btn" data-tab="monthly" data-fa="ماهانه" data-en="Monthly">ماهانه</button>
+                </div>
+
+                <div class="tab-content">
+                    <!-- Daily Tab -->
+                    <div id="daily" class="tab-pane active">
+                        <div class="stats-header">
+                            <h3 data-fa="آمار امروز" data-en="Today's Stats">آمار امروز</h3>
+                            <button class="refresh-btn" data-period="daily">
+                                <span>🔄</span>
+                            </button>
+                        </div>
+                        <div id="dailyStats" class="stats-grid"></div>
+                    </div>
+
+                    <!-- Weekly Tab -->
+                    <div id="weekly" class="tab-pane">
+                        <div class="stats-header">
+                            <h3 data-fa="آمار هفتگی" data-en="Weekly Stats">آمار هفتگی</h3>
+                            <button class="refresh-btn" data-period="weekly">
+                                <span>🔄</span>
+                            </button>
+                        </div>
+                        <div id="weeklyStats" class="stats-grid"></div>
+                    </div>
+
+                    <!-- Monthly Tab -->
+                    <div id="monthly" class="tab-pane">
+                        <div class="stats-header">
+                            <h3 data-fa="آمار ماهانه" data-en="Monthly Stats">آمار ماهانه</h3>
+                            <button class="refresh-btn" data-period="monthly">
+                                <span>🔄</span>
+                            </button>
+                        </div>
+                        <div id="monthlyStats" class="stats-grid"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p data-fa="ساخته شده با ❤️" data-en="Made with ❤️">ساخته شده با ❤️</p>
+            <p>
+                <span data-fa="توسعه دهنده و پشتیبانی:" data-en="Developer & Support:">توسعه دهنده و پشتیبانی:</span>
+                <a href="https://t.me/tirok547" target="_blank">@tirok547</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

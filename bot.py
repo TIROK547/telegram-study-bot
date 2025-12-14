@@ -2,7 +2,7 @@ import os
 import asyncio
 from datetime import datetime, timedelta, time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters, ConversationHandler
 from telegram.ext import ApplicationBuilder
 import pytz
 import jdatetime
@@ -22,6 +22,18 @@ UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", "30"))
 
 # Timezone
 IRAN_TZ = pytz.timezone('Asia/Tehran')
+
+# Profile setup states
+FIELD_SELECTION, GRADE_INPUT = range(2)
+
+# Field options
+FIELD_OPTIONS = {
+    "daneshgah": "دانشگاه",
+    "riazi": "ریاضی",
+    "ensani": "انسانی",
+    "tajrobi": "تجربی",
+    "honarestan": "هنرستان"
+}
 
 def to_farsi_number(num):
     """Convert English/Arabic numbers to Farsi"""
@@ -102,17 +114,37 @@ def format_persian_date_display(p_date):
     day = to_farsi_number(f"{p_date['day']:02d}")
     return f"{year}/{month}/{day}"
 
-def check_group_access(update: Update) -> bool:
-    """Check if the update is from the allowed group"""
+async def check_group_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Check if user is a member of the allowed group"""
     if ALLOWED_GROUP_ID == 0:
         return True
-    
+
     chat_id = update.effective_chat.id
-    return chat_id == ALLOWED_GROUP_ID
+    user_id = update.effective_user.id
+
+    # If message is in the allowed group, allow it
+    if chat_id == ALLOWED_GROUP_ID:
+        return True
+
+    # If it's a private chat, check if user is a member of the allowed group
+    if chat_id == user_id:  # Private chat
+        try:
+            member = await context.bot.get_chat_member(ALLOWED_GROUP_ID, user_id)
+            # Allow if user is member, administrator, or creator
+            return member.status in ['member', 'administrator', 'creator']
+        except Exception as e:
+            print(f"Error checking group membership: {e}")
+            return False
+
+    return False
 
 async def access_denied(update: Update):
     """Send access denied message"""
-    message = "⛔️ این ربات فقط در گروه مجاز فعال است."
+    message = (
+        "⛔️ دسترسی محدود شده است.\n\n"
+        "برای استفاده از این ربات، ابتدا باید عضو گروه مجاز باشید.\n"
+        "بعد از عضویت در گروه، می‌توانید از ربات در پیام خصوصی استفاده کنید."
+    )
     if update.message:
         await update.message.reply_text(message)
     elif update.callback_query:
@@ -276,7 +308,7 @@ def build_details_message():
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show detailed statistics"""
-    if not check_group_access(update):
+    if not await check_group_access(update, context):
         await access_denied(update)
         return
 
@@ -339,7 +371,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show live study details"""
-    if not check_group_access(update):
+    if not await check_group_access(update, context):
         await access_denied(update)
         return
 
@@ -373,13 +405,177 @@ async def update_details_message(context: ContextTypes.DEFAULT_TYPE):
         print(f"⚠️ Warning updating details message: {e}")
         pass
 
+async def start_profile_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start profile setup process"""
+    message = (
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"📝 تکمیل پروفایل\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"سلام! 👋\n\n"
+        f"برای استفاده از ربات، لطفاً اول\n"
+        f"پروفایلت رو کامل کن.\n\n"
+        f"🎓 رشته یا مقطع تحصیلی خودت رو انتخاب کن:"
+    )
+
+    keyboard = [
+        [InlineKeyboardButton("🎓 دانشگاه", callback_data="field:daneshgah")],
+        [InlineKeyboardButton("📐 ریاضی", callback_data="field:riazi")],
+        [InlineKeyboardButton("📚 انسانی", callback_data="field:ensani")],
+        [InlineKeyboardButton("🔬 تجربی", callback_data="field:tajrobi")],
+        [InlineKeyboardButton("🎨 هنرستان", callback_data="field:honarestan")]
+    ]
+
+    await update.message.reply_text(message, reply_markup=InlineKeyboardMarkup(keyboard))
+    return FIELD_SELECTION
+
+
+async def handle_field_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle field selection"""
+    query = update.callback_query
+    await query.answer()
+
+    # Extract field from callback data
+    field = query.data.split(":")[1]
+    context.user_data['field'] = field
+
+    # Determine grade range based on field
+    if field == "daneshgah":
+        grade_message = (
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📚 ترم تحصیلی\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"✅ رشته انتخاب شد: دانشگاه\n\n"
+            f"لطفاً شماره ترم خودت رو وارد کن\n"
+            f"(عدد بین ۱ تا ۲۲):\n\n"
+            f"مثال: 5"
+        )
+        context.user_data['min_grade'] = 1
+        context.user_data['max_grade'] = 22
+    elif field == "honarestan":
+        grade_message = (
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🎨 رشته هنرستان\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"✅ مقطع انتخاب شد: هنرستان\n\n"
+            f"لطفاً رشته دقیق خودت رو بنویس:\n\n"
+            f"مثال: گرافیک"
+        )
+        context.user_data['honarestan_custom'] = True
+    else:
+        field_name = FIELD_OPTIONS[field]
+        grade_message = (
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📖 پایه تحصیلی\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"✅ رشته انتخاب شد: {field_name}\n\n"
+            f"لطفاً پایه تحصیلی خودت رو وارد کن\n"
+            f"(عدد بین ۶ تا ۱۲):\n\n"
+            f"مثال: 11"
+        )
+        context.user_data['min_grade'] = 6
+        context.user_data['max_grade'] = 12
+
+    await query.edit_message_text(grade_message)
+    return GRADE_INPUT
+
+
+async def handle_grade_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle grade/term input"""
+    user_id = str(update.effective_user.id)
+    text = update.message.text.strip()
+    field = context.user_data.get('field')
+
+    # Handle honarestan custom field
+    if context.user_data.get('honarestan_custom'):
+        # Save custom field for honarestan
+        custom_field = f"honarestan:{text}"
+        db.update_user_profile(user_id, custom_field, 0)  # 0 for honarestan as grade is the field name
+
+        message = (
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"✅ پروفایل تکمیل شد!\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🎉 عالی!\n\n"
+            f"🎓 رشته: هنرستان - {text}\n\n"
+            f"حالا می‌تونی از ربات استفاده کنی!\n\n"
+            f"برای شروع: /start"
+        )
+        await update.message.reply_text(message)
+        return ConversationHandler.END
+
+    # Validate grade is a number
+    try:
+        grade = int(text)
+    except ValueError:
+        await update.message.reply_text(
+            f"⚠️ لطفاً فقط عدد وارد کن!\n\nمثال: 11"
+        )
+        return GRADE_INPUT
+
+    # Validate grade range
+    min_grade = context.user_data.get('min_grade', 1)
+    max_grade = context.user_data.get('max_grade', 22)
+
+    if grade < min_grade or grade > max_grade:
+        min_fa = to_farsi_number(min_grade)
+        max_fa = to_farsi_number(max_grade)
+        await update.message.reply_text(
+            f"⚠️ عدد باید بین {min_fa} تا {max_fa} باشه!\n\nدوباره امتحان کن:"
+        )
+        return GRADE_INPUT
+
+    # Save profile
+    db.update_user_profile(user_id, field, grade)
+
+    field_name = FIELD_OPTIONS[field]
+    grade_fa = to_farsi_number(grade)
+
+    if field == "daneshgah":
+        grade_label = f"ترم {grade_fa}"
+    else:
+        grade_label = f"پایه {grade_fa}"
+
+    message = (
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"✅ پروفایل تکمیل شد!\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🎉 عالی!\n\n"
+        f"🎓 رشته: {field_name}\n"
+        f"📚 {grade_label}\n\n"
+        f"حالا می‌تونی از ربات استفاده کنی!\n\n"
+        f"برای شروع: /start"
+    )
+
+    await update.message.reply_text(message)
+    return ConversationHandler.END
+
+
+async def cancel_profile_setup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cancel profile setup"""
+    await update.message.reply_text(
+        f"❌ تکمیل پروفایل لغو شد.\n\n"
+        f"برای شروع دوباره: /start"
+    )
+    return ConversationHandler.END
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
-    if not check_group_access(update):
+    if not await check_group_access(update, context):
         await access_denied(update)
         return
 
-    user_id = update.effective_user.id
+    user_id = str(update.effective_user.id)
+    username = f"@{update.effective_user.username}" if update.effective_user.username else f"user: ({update.effective_user.first_name})"
+
+    # Create or update user
+    db.create_or_update_user(user_id, username)
+
+    # Check if profile is completed
+    if not db.is_profile_completed(user_id):
+        # Start profile setup
+        return await start_profile_setup(update, context)
+
     now = get_iran_now()
     p_date = get_persian_date()
 
@@ -400,7 +596,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👇 از دکمه‌های زیر استفاده کن:"
     )
 
-    await update.message.reply_text(message, reply_markup=get_main_menu_keyboard(user_id))
+    await update.message.reply_text(message, reply_markup=get_main_menu_keyboard(update.effective_user.id))
 
 def update_period_stats(user_id, username, duration):
     """Update weekly and monthly statistics"""
@@ -415,7 +611,7 @@ def update_period_stats(user_id, username, duration):
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle button callbacks"""
-    if not check_group_access(update):
+    if not await check_group_access(update, context):
         await access_denied(update)
         return
 
@@ -1000,7 +1196,19 @@ def main():
     # Add error handler first
     application.add_error_handler(error_handler)
 
+    # Profile setup conversation handler
+    profile_conv_handler = ConversationHandler(
+        entry_points=[],  # Entry is handled by /start command
+        states={
+            FIELD_SELECTION: [CallbackQueryHandler(handle_field_selection, pattern="^field:")],
+            GRADE_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_grade_input)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel_profile_setup)],
+        allow_reentry=True
+    )
+
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(profile_conv_handler)
     application.add_handler(CommandHandler("details", details))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CallbackQueryHandler(button_handler))

@@ -1,0 +1,46 @@
+{
+  "app": {
+    "title": "پنل آمار مطالعه",
+    "description": "آمار و رتبه‌بندی زمان مطالعه",
+    "theme": "تغییر تم"
+  },
+  "nav": {
+    "search": "جستجوی کاربر",
+    "stats": "آمار",
+    "theme": "تغییر تم",
+    "language": "زبان"
+  },
+  "search": {
+    "title": "جستجوی کاربر",
+    "placeholder": "@username (مثال: @tirok547)",
+    "button": "جستجو",
+    "noResults": "کاربری یافت نشد",
+    "field": "رشته",
+    "grade": "پایه"
+  },
+  "stats": {
+    "daily": "روزانه",
+    "weekly": "هفتگی",
+    "monthly": "ماهانه",
+    "todayTitle": "آمار امروز",
+    "weeklyTitle": "آمار هفتگی",
+    "monthlyTitle": "آمار ماهانه",
+    "noStats": "هنوز آماری ثبت نشده است",
+    "rank": "رتبه",
+    "dailyTime": "امروز",
+    "weeklyTime": "هفتگی",
+    "monthlyTime": "ماهانه",
+    "totalTime": "کل زمان"
+  },
+  "fields": {
+    "daneshgah": "دانشگاه",
+    "riazi": "ریاضی",
+    "ensani": "انسانی",
+    "tajrobi": "تجربی",
+    "honarestan": "هنرستان"
+  },
+  "footer": {
+    "madeWith": "ساخته شده با",
+    "developer": "توسعه دهنده و پشتیبانی:"
+  }
+}

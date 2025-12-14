@@ -34,6 +34,9 @@ def init_database():
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
+                field TEXT,
+                grade INTEGER,
+                profile_completed INTEGER DEFAULT 0,
                 active_session_start TEXT,
                 active_session_paused_at TEXT,
                 active_session_paused_duration INTEGER DEFAULT 0,
@@ -217,6 +220,28 @@ def get_all_users() -> Dict[str, Dict]:
         cursor.execute("SELECT * FROM users")
         rows = cursor.fetchall()
         return {row['user_id']: dict(row) for row in rows}
+
+
+def update_user_profile(user_id: str, field: str, grade: int) -> None:
+    """Update user profile"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET field = ?,
+                grade = ?,
+                profile_completed = 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+        """, (field, grade, user_id))
+
+
+def is_profile_completed(user_id: str) -> bool:
+    """Check if user has completed their profile"""
+    user = get_user(user_id)
+    if not user:
+        return False
+    return user.get('profile_completed', 0) == 1
 
 
 # DAILY STATS OPERATIONS

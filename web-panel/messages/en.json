@@ -1,0 +1,46 @@
+{
+  "app": {
+    "title": "Study Stats Panel",
+    "description": "Study time statistics and leaderboards",
+    "theme": "Toggle Theme"
+  },
+  "nav": {
+    "search": "Search User",
+    "stats": "Statistics",
+    "theme": "Toggle Theme",
+    "language": "Language"
+  },
+  "search": {
+    "title": "Search User",
+    "placeholder": "@username (e.g. @tirok547)",
+    "button": "Search",
+    "noResults": "No user found",
+    "field": "Field",
+    "grade": "Grade"
+  },
+  "stats": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "todayTitle": "Today's Stats",
+    "weeklyTitle": "Weekly Stats",
+    "monthlyTitle": "Monthly Stats",
+    "noStats": "No statistics available yet",
+    "rank": "Rank",
+    "dailyTime": "Today",
+    "weeklyTime": "Weekly",
+    "monthlyTime": "Monthly",
+    "totalTime": "Total Time"
+  },
+  "fields": {
+    "daneshgah": "University",
+    "riazi": "Mathematics",
+    "ensani": "Humanities",
+    "tajrobi": "Experimental",
+    "honarestan": "Art School"
+  },
+  "footer": {
+    "madeWith": "Made with",
+    "developer": "Developer & Support:"
+  }
+}
